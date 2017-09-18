@@ -3,6 +3,7 @@ package com.segment.analytics.android.integrations.optimizelyx;
 import android.app.Application;
 
 import com.optimizely.ab.Optimizely;
+import com.optimizely.ab.config.LiveVariableUsageInstance;
 import com.optimizely.ab.config.ProjectConfigUtils;
 import com.optimizely.ab.config.TrafficAllocation;
 import com.optimizely.ab.notification.NotificationListener;
@@ -24,13 +25,12 @@ import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static android.R.attr.key;
 import static com.segment.analytics.Analytics.LogLevel.VERBOSE;
-import static com.segment.analytics.Utils.createTraits;
 
 import org.mockito.Mock;
 import static org.mockito.Mockito.verify;
@@ -50,6 +50,7 @@ public class OptimizelyXTest {
   @Rule public PowerMockRule rule = new PowerMockRule();
   @Mock
   Analytics analytics;
+  NotificationListener listener;
 
   OptimizelyXIntegration integration;
 
@@ -58,6 +59,7 @@ public class OptimizelyXTest {
     PowerMockito.mock(NotificationListener.class);
 
     integration = new OptimizelyXIntegration(analytics, null, Logger.with(VERBOSE));
+    listener = integration.getUnderlyingInstance();
   }
 
   @Test public void onEventTracked() {
@@ -70,13 +72,30 @@ public class OptimizelyXTest {
 
   @Test public void onExperimentActivated() {
 
-//    Experiment experiment = new Experiment();
+    // should we mock Experiment and Variation classes?
+    String id = "123";
+    String experimentKey = "experiment_key";
+    List<String> audienceIds = new ArrayList<String>();
+    List<Variation> variations = new ArrayList<Variation>();
+    Map<String, String> userIdToVariationKeyMap = new HashMap<>();
+    List<TrafficAllocation> trafficAllocation = new ArrayList<TrafficAllocation>();
+    String groupId = "123";
+
+    String variationKey = "variation_key";
+    List<LiveVariableUsageInstance> liveVariableUsageInstancess = new ArrayList<>();
+
+    Experiment experiment = new Experiment(id, experimentKey, null, null, audienceIds, variations, userIdToVariationKeyMap, trafficAllocation, groupId);
     String userId = "123";
     Map<String, String> attributes = new HashMap<>();
-//    Variation variation = new Variation();
+    Variation variation = new Variation(id, variationKey, liveVariableUsageInstancess);
 
-    integration.listener.onExperimentActivated(null, userId, attributes, null);
+    integration.listener.onExperimentActivated(experiment, userId, attributes, variation);
 
-    verify(analytics).track("Experiment Activated");
+    Properties properties = new Properties()
+            .putValue("experimentId", "123")
+            .putValue("experimentName", "experiment_key")
+            .putValue("variationId", "123")
+            .putValue("variationName", "variation_key");
+    verify(analytics).track("Experiment Viewed", properties);
   }
 }
