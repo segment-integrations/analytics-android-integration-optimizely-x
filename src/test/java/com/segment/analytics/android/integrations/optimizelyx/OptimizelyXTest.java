@@ -1,7 +1,5 @@
 package com.segment.analytics.android.integrations.optimizelyx;
 
-import android.content.Context;
-
 import com.optimizely.ab.android.sdk.OptimizelyClient;
 import com.optimizely.ab.config.Experiment;
 import com.optimizely.ab.config.LiveVariableUsageInstance;
@@ -51,7 +49,6 @@ public class OptimizelyXTest {
   @Before public void setUp() {
     initMocks(this);
     PowerMockito.mock(OptimizelyClient.class);
-    Context context = PowerMockito.mock(Context.class);
 
     client = mock(OptimizelyClient.class);
     integration = new OptimizelyXIntegration(analytics, client, Logger.with(VERBOSE));
