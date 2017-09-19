@@ -1,102 +1,103 @@
 package com.segment.analytics.android.integrations.optimizelyx;
 
+import com.optimizely.ab.android.sdk.OptimizelyClient;
 import com.optimizely.ab.config.Experiment;
-import com.optimizely.ab.event.LogEvent;
+import com.optimizely.ab.config.Variation;
+import com.optimizely.ab.notification.NotificationListener;
 import com.segment.analytics.Analytics;
 import com.segment.analytics.Options;
-import com.segment.analytics.Traits;
 import com.segment.analytics.Properties;
 import com.segment.analytics.ValueMap;
 import com.segment.analytics.integrations.Integration;
-
-import static com.segment.analytics.internal.Utils.isNullOrEmpty;
-
-import com.optimizely.ab.notification.NotificationListener;
-import com.optimizely.ab.config.Variation;
+import com.segment.analytics.integrations.Logger;
+import com.segment.analytics.integrations.TrackPayload;
 
 import java.util.Map;
+
+import static com.segment.analytics.internal.Utils.isNullOrEmpty;
 
 /**
  * Optimizely X helps marketers and growth hackers make smart decisions through A/B testing.
  *
  * @see <a href="https://www.optimizely.com/">Optimizely</a>
  * @see <a href="https://segment.com/docs/destinations/optimizelyx/">Optimizely Integration</a>
- * @see <a
- *     href="https://developers.optimizely.com/x/solutions/sdks/introduction/index.html?language=android&platform=mobile">Optimizely
- *     Android SDK</a>
+ * @see <a href="https://developers.optimizely.com/x/solutions/sdks/introduction/index.html?language=android&platform=mobile">Optimizely Android SDK</a>
  */
-public class OptimizelyXIntegration extends Integration<NotificationListener> {
-  static final Options options = new Options().setIntegration("Optimizely X", false);
-  private static final String OPTIMIZELYX_KEY = "Optimizely X";
-  final NotificationListener listener;
+public class OptimizelyXIntegration extends Integration<Void> {
 
-  public static final Factory FACTORY =
-      new Factory() {
+    private static final String OPTIMIZELYX_KEY = "Optimizely X";
+    final NotificationListener listener;
+    private final OptimizelyClient client;
+    private final Logger logger;
+    static final Options options = new Options().setIntegration(OPTIMIZELYX_KEY, false);
+
+    public static Factory factory(OptimizelyClient client) {
+        return new Factory(client);
+    }
+
+    private static class Factory implements Integration.Factory {
+        private final OptimizelyClient client;
+
+        Factory(OptimizelyClient client) {
+            this.client = client;
+        }
+
         @Override
         public Integration<?> create(ValueMap settings, Analytics analytics) {
-          return new OptimizelyXIntegration(analytics);
+            Logger logger = analytics.logger(OPTIMIZELYX_KEY);
+            return new OptimizelyXIntegration(analytics, client, logger);
         }
 
         @Override
         public String key() {
-          return OPTIMIZELYX_KEY;
+            return OPTIMIZELYX_KEY;
         }
-      };
+    }
 
-  OptimizelyXIntegration(final Analytics analytics) {
+    public OptimizelyXIntegration(final Analytics analytics, OptimizelyClient client, Logger logger) {
+        this.client = client;
+        this.logger = logger;
 
-    listener =
-        new NotificationListener() {
-          @Override
-          public void onEventTracked(
-              String eventKey,
-              String userId,
-              Map<String, String> attributes,
-              Long eventValue,
-              LogEvent logEvent) {
+        listener = new OptimizelyNotificationListener(analytics);
+        client.addNotificationListener(listener);
+    }
 
-            if (!isNullOrEmpty(attributes)) {
-              Traits traits = new Traits();
-              for (Map.Entry<String, String> entry : attributes.entrySet()) {
-                String trait = entry.getKey();
-                String value = entry.getValue();
-                traits.putValue(trait, value);
-              }
-              analytics.identify(userId, traits, options);
-            }
-            analytics.track(eventKey, null, options);
-          }
+    @Override
+    public void track(TrackPayload track) {
+        super.track(track);
 
-          @Override
-          public void onExperimentActivated(
-              Experiment experiment,
-              String userId,
-              Map<String, String> attributes,
-              Variation variation) {
+        if (!isNullOrEmpty(track.userId())) {
+            client.track(track.event(), track.userId(), track.properties().toStringMap());
+            logger.verbose("client.track(%s, %s, %s)", track.event(), track.userId(), track.properties().toStringMap());
+        }
+    }
 
-            if (!isNullOrEmpty(attributes)) {
-              Traits traits = new Traits();
-              for (Map.Entry<String, String> entry : attributes.entrySet()) {
-                String trait = entry.getKey();
-                String value = entry.getValue();
-                traits.putValue(trait, value);
-              }
-              analytics.identify(userId, traits, options);
-            }
+    @Override
+    public void reset() {
+        super.reset();
 
-            Properties properties =
-                new Properties()
+        client.removeNotificationListener(listener);
+        logger.verbose("client.removeNotificationListener(%)", listener);
+    }
+
+    private static class OptimizelyNotificationListener extends NotificationListener {
+        private final Analytics analytics;
+        public OptimizelyNotificationListener(Analytics analytics) {
+            this.analytics = analytics;
+        }
+
+        @Override
+        public void onExperimentActivated(Experiment experiment,
+                                          String userId,
+                                          Map<String, String> attributes,
+                                          Variation variation) {
+
+            Properties properties = new Properties()
                     .putValue("experimentId", experiment.getId())
                     .putValue("experimentName", experiment.getKey())
                     .putValue("variationId", variation.getId())
                     .putValue("variationName", variation.getKey());
             analytics.track("Experiment Viewed", properties, options);
-          }
-        };
-  }
-
-  @Override
-  public NotificationListener getUnderlyingInstance() {
-    return listener;
-  }
+        }
+    }
 }
