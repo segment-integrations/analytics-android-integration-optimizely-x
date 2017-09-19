@@ -21,83 +21,87 @@ import static com.segment.analytics.internal.Utils.isNullOrEmpty;
  *
  * @see <a href="https://www.optimizely.com/">Optimizely</a>
  * @see <a href="https://segment.com/docs/destinations/optimizelyx/">Optimizely Integration</a>
- * @see <a href="https://developers.optimizely.com/x/solutions/sdks/introduction/index.html?language=android&platform=mobile">Optimizely Android SDK</a>
+ * @see <a
+ *     href="https://developers.optimizely.com/x/solutions/sdks/introduction/index.html?language=android&platform=mobile">Optimizely
+ *     Android SDK</a>
  */
 public class OptimizelyXIntegration extends Integration<Void> {
 
-    private static final String OPTIMIZELYX_KEY = "Optimizely X";
-    final NotificationListener listener;
+  private static final String OPTIMIZELYX_KEY = "Optimizely X";
+  final NotificationListener listener;
+  private final OptimizelyClient client;
+  private final Logger logger;
+  static final Options options = new Options().setIntegration(OPTIMIZELYX_KEY, false);
+
+  public static Factory factory(OptimizelyClient client) {
+    return new Factory(client);
+  }
+
+  private static class Factory implements Integration.Factory {
     private final OptimizelyClient client;
-    private final Logger logger;
-    static final Options options = new Options().setIntegration(OPTIMIZELYX_KEY, false);
 
-    public static Factory factory(OptimizelyClient client) {
-        return new Factory(client);
-    }
-
-    private static class Factory implements Integration.Factory {
-        private final OptimizelyClient client;
-
-        Factory(OptimizelyClient client) {
-            this.client = client;
-        }
-
-        @Override
-        public Integration<?> create(ValueMap settings, Analytics analytics) {
-            Logger logger = analytics.logger(OPTIMIZELYX_KEY);
-            return new OptimizelyXIntegration(analytics, client, logger);
-        }
-
-        @Override
-        public String key() {
-            return OPTIMIZELYX_KEY;
-        }
-    }
-
-    public OptimizelyXIntegration(final Analytics analytics, OptimizelyClient client, Logger logger) {
-        this.client = client;
-        this.logger = logger;
-
-        listener = new OptimizelyNotificationListener(analytics);
-        client.addNotificationListener(listener);
+    Factory(OptimizelyClient client) {
+      this.client = client;
     }
 
     @Override
-    public void track(TrackPayload track) {
-        super.track(track);
-
-        if (!isNullOrEmpty(track.userId())) {
-            client.track(track.event(), track.userId(), track.properties().toStringMap());
-            logger.verbose("client.track(%s, %s, %s)", track.event(), track.userId(), track.properties().toStringMap());
-        }
+    public Integration<?> create(ValueMap settings, Analytics analytics) {
+      Logger logger = analytics.logger(OPTIMIZELYX_KEY);
+      return new OptimizelyXIntegration(analytics, client, logger);
     }
 
     @Override
-    public void reset() {
-        super.reset();
+    public String key() {
+      return OPTIMIZELYX_KEY;
+    }
+  }
 
-        client.removeNotificationListener(listener);
-        logger.verbose("client.removeNotificationListener(%)", listener);
+  public OptimizelyXIntegration(final Analytics analytics, OptimizelyClient client, Logger logger) {
+    this.client = client;
+    this.logger = logger;
+
+    listener = new OptimizelyNotificationListener(analytics);
+    client.addNotificationListener(listener);
+  }
+
+  @Override
+  public void track(TrackPayload track) {
+    super.track(track);
+
+    if (!isNullOrEmpty(track.userId())) {
+      client.track(track.event(), track.userId(), track.properties().toStringMap());
+      logger.verbose(
+          "client.track(%s, %s, %s)",
+          track.event(), track.userId(), track.properties().toStringMap());
+    }
+  }
+
+  @Override
+  public void reset() {
+    super.reset();
+
+    client.removeNotificationListener(listener);
+    logger.verbose("client.removeNotificationListener(%s)", listener);
+  }
+
+  private static class OptimizelyNotificationListener extends NotificationListener {
+    private final Analytics analytics;
+
+    public OptimizelyNotificationListener(Analytics analytics) {
+      this.analytics = analytics;
     }
 
-    private static class OptimizelyNotificationListener extends NotificationListener {
-        private final Analytics analytics;
-        public OptimizelyNotificationListener(Analytics analytics) {
-            this.analytics = analytics;
-        }
+    @Override
+    public void onExperimentActivated(
+        Experiment experiment, String userId, Map<String, String> attributes, Variation variation) {
 
-        @Override
-        public void onExperimentActivated(Experiment experiment,
-                                          String userId,
-                                          Map<String, String> attributes,
-                                          Variation variation) {
-
-            Properties properties = new Properties()
-                    .putValue("experimentId", experiment.getId())
-                    .putValue("experimentName", experiment.getKey())
-                    .putValue("variationId", variation.getId())
-                    .putValue("variationName", variation.getKey());
-            analytics.track("Experiment Viewed", properties, options);
-        }
+      Properties properties =
+          new Properties()
+              .putValue("experimentId", experiment.getId())
+              .putValue("experimentName", experiment.getKey())
+              .putValue("variationId", variation.getId())
+              .putValue("variationName", variation.getKey());
+      analytics.track("Experiment Viewed", properties, options);
     }
+  }
 }

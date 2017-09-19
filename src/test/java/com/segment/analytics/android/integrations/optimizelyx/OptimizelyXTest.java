@@ -2,18 +2,17 @@ package com.segment.analytics.android.integrations.optimizelyx;
 
 import android.content.Context;
 
-import com.optimizely.ab.Optimizely;
 import com.optimizely.ab.android.sdk.OptimizelyClient;
-import com.optimizely.ab.android.sdk.OptimizelyManager;
-import com.optimizely.ab.android.sdk.OptimizelyStartListener;
 import com.optimizely.ab.config.Experiment;
 import com.optimizely.ab.config.LiveVariableUsageInstance;
 import com.optimizely.ab.config.TrafficAllocation;
 import com.optimizely.ab.config.Variation;
 import com.segment.analytics.Analytics;
 import com.segment.analytics.Properties;
+import com.segment.analytics.Traits;
 import com.segment.analytics.core.tests.BuildConfig;
 import com.segment.analytics.integrations.Logger;
+import com.segment.analytics.test.TrackPayloadBuilder;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -34,42 +33,35 @@ import java.util.Map;
 
 import static com.segment.analytics.Analytics.LogLevel.VERBOSE;
 import static com.segment.analytics.android.integrations.optimizelyx.OptimizelyXIntegration.options;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.MockitoAnnotations.initMocks;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(constants = BuildConfig.class)
 @PowerMockIgnore({ "org.mockito.*", "org.roboelectric.*", "android.*" })
-@PrepareForTest({ OptimizelyClient.class, OptimizelyManager.class })
+@PrepareForTest({ OptimizelyClient.class })
 public class OptimizelyXTest {
 
   @Rule public PowerMockRule rule = new PowerMockRule();
   @Mock Analytics analytics;
-  private static final String PROJECT_ID = "8728792582";
   private OptimizelyXIntegration integration;
   private OptimizelyClient client;
 
   @Before public void setUp() {
     initMocks(this);
-    PowerMockito.mock(OptimizelyManager.class);
     PowerMockito.mock(OptimizelyClient.class);
     Context context = PowerMockito.mock(Context.class);
 
-    OptimizelyManager optimizelyManager = OptimizelyManager.builder(PROJECT_ID)
-            .build(context);
-
-    optimizelyManager.initialize(context);
-
-    client = optimizelyManager.getOptimizely();
-
+    client = mock(OptimizelyClient.class);
     integration = new OptimizelyXIntegration(analytics, client, Logger.with(VERBOSE));
   }
 
   @Test public void track() {
-
-    Properties properties = new Properties()
+    Properties properties = new Properties();
+    Traits traits = new Traits()
             .putValue("userId", "123");
-    analytics.track("event", properties);
+    integration.track(new TrackPayloadBuilder().properties(properties).traits(traits).event("event").build());
 
     verify(client).track("event", "123", properties.toStringMap());
   }
@@ -100,5 +92,10 @@ public class OptimizelyXTest {
             .putValue("variationId", "123")
             .putValue("variationName", "variation_key");
     verify(analytics).track("Experiment Viewed", properties, options);
+  }
+
+  @Test public void reset() {
+    integration.reset();
+    verify(client).removeNotificationListener(integration.listener);
   }
 }
