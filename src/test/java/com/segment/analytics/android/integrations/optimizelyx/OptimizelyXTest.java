@@ -33,6 +33,7 @@ import java.util.Map;
 import static com.segment.analytics.Analytics.LogLevel.VERBOSE;
 import static com.segment.analytics.android.integrations.optimizelyx.OptimizelyXIntegration.options;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.MockitoAnnotations.initMocks;
 
@@ -74,6 +75,16 @@ public class OptimizelyXTest {
     integration.track(new TrackPayloadBuilder().properties(properties).traits(traits).event("event").build());
 
     verify(client).track("event", "123", properties.toStringMap());
+  }
+
+  @Test public void trackKnownUsersNoUserId() {
+    integration.trackKnownUsers = true;
+
+    Traits traits = new Traits()
+            .putValue("anonymousId", "456");
+    integration.track(new TrackPayloadBuilder().traits(traits).event("event").build());
+
+    verify(client,times(0)).track("event", "123");
   }
 
   @Test public void onExperimentActivated() {

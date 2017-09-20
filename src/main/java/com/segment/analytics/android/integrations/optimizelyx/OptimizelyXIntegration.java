@@ -71,21 +71,24 @@ public class OptimizelyXIntegration extends Integration<Void> {
   public void track(TrackPayload track) {
     super.track(track);
 
-    if (trackKnownUsers && !isNullOrEmpty(track.userId())) {
-      client.track(track.event(), track.userId(), track.properties().toStringMap());
+    String id;
+    String userId = track.userId();
+    String event = track.event();
+    Map<String, String> properties = track.properties().toStringMap();
+
+    if (trackKnownUsers && isNullOrEmpty(userId)) {
       logger.verbose(
-          "client.track(%s, %s, %s)",
-          track.event(), track.userId(), track.properties().toStringMap());
-    } else if (trackKnownUsers && isNullOrEmpty(track.userId())) {
-      logger.verbose(
-          "Segment will only track users associated with a userId when the "
-              + "trackKnownUsers setting is enabled.");
+          "Segment will only track users associated with a userId "
+              + "when the trackKnownUsers setting is enabled.");
+      return;
+    } else if (trackKnownUsers && !isNullOrEmpty(userId)) {
+      id = track.userId();
     } else {
-      client.track(track.event(), track.anonymousId(), track.properties().toStringMap());
-      logger.verbose(
-          "client.track(%s, %s, %s)",
-          track.event(), track.anonymousId(), track.properties().toStringMap());
+      id = track.anonymousId();
     }
+
+    client.track(event, id, properties);
+    logger.verbose("client.track(%s, %s, %s)", event, id, properties);
   }
 
   @Override
@@ -93,7 +96,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
     super.reset();
 
     client.removeNotificationListener(listener);
-    logger.verbose("client.removeNotificationListener(%s)", listener);
+    logger.verbose("client.removeNotificationListener(listener)");
   }
 
   private static class OptimizelyNotificationListener extends NotificationListener {
