@@ -8,6 +8,7 @@ import com.optimizely.ab.config.Variation;
 import com.segment.analytics.Analytics;
 import com.segment.analytics.Properties;
 import com.segment.analytics.Traits;
+import com.segment.analytics.ValueMap;
 import com.segment.analytics.core.tests.BuildConfig;
 import com.segment.analytics.integrations.Logger;
 import com.segment.analytics.test.TrackPayloadBuilder;
@@ -51,10 +52,22 @@ public class OptimizelyXTest {
     PowerMockito.mock(OptimizelyClient.class);
 
     client = mock(OptimizelyClient.class);
-    integration = new OptimizelyXIntegration(analytics, client, Logger.with(VERBOSE));
+    integration = new OptimizelyXIntegration(analytics, client, new ValueMap().putValue("trackKnownUsers", false), Logger.with(VERBOSE));
   }
 
   @Test public void track() {
+    Properties properties = new Properties();
+    Traits traits = new Traits()
+            .putValue("userId", "123")
+            .putValue("anonymousId", "456");
+    integration.track(new TrackPayloadBuilder().properties(properties).traits(traits).event("event").build());
+
+    verify(client).track("event", "456", properties.toStringMap());
+  }
+
+  @Test public void trackKnownUsers() {
+    integration.trackKnownUsers = true;
+
     Properties properties = new Properties();
     Traits traits = new Traits()
             .putValue("userId", "123");
