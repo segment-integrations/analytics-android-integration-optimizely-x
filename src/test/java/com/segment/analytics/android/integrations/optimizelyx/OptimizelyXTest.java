@@ -1,6 +1,7 @@
 package com.segment.analytics.android.integrations.optimizelyx;
 
 import com.optimizely.ab.android.sdk.OptimizelyClient;
+import com.optimizely.ab.android.sdk.OptimizelyManager;
 import com.optimizely.ab.config.Experiment;
 import com.optimizely.ab.config.LiveVariableUsageInstance;
 import com.optimizely.ab.config.TrafficAllocation;
@@ -47,13 +48,14 @@ public class OptimizelyXTest {
   @Mock Analytics analytics;
   private OptimizelyXIntegration integration;
   private OptimizelyClient client;
+  private OptimizelyManager manager;
 
   @Before public void setUp() {
     initMocks(this);
     PowerMockito.mock(OptimizelyClient.class);
 
     client = mock(OptimizelyClient.class);
-    integration = new OptimizelyXIntegration(analytics, client, new ValueMap().putValue("trackKnownUsers", false), Logger.with(VERBOSE));
+    integration = new OptimizelyXIntegration(analytics, manager, new ValueMap().putValue("trackKnownUsers", false), Logger.with(VERBOSE));
   }
 
   @Test public void track() {
