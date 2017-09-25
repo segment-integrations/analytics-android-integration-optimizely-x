@@ -65,7 +65,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
   }
 
   public OptimizelyXIntegration(
-          final Analytics analytics, OptimizelyManager manager, ValueMap settings, Logger logger) {
+      final Analytics analytics, OptimizelyManager manager, ValueMap settings, Logger logger) {
     this.client = manager.getOptimizely();
     this.logger = logger;
 
@@ -84,30 +84,31 @@ public class OptimizelyXIntegration extends Integration<Void> {
   public void track(TrackPayload track) {
     super.track(track);
 
-    if (isClientValid) {
-      String id;
-      String userId = track.userId();
-      String event = track.event();
-      Map<String, String> properties = track.properties().toStringMap();
-
-      if (trackKnownUsers && isNullOrEmpty(userId)) {
-        logger.verbose(
-                "Segment will only track users associated with a userId "
-                        + "when the trackKnownUsers setting is enabled.");
+    synchronized (this) {
+      if (!isClientValid) {
+        trackEvents.add(track);
         return;
-      } else if (trackKnownUsers && !isNullOrEmpty(userId)) {
-        id = track.userId();
-      } else {
-        id = track.anonymousId();
-      }
-      client.track(event, id, properties);
-      logger.verbose("client.track(%s, %s, %s)", event, id, properties);
-    } else {
-      trackEvents.add(track);
-      for (TrackPayload t : trackEvents) {
-        logger.verbose(t.toString());
       }
     }
+
+    String id;
+    String userId = track.userId();
+    String event = track.event();
+    Map<String, String> properties = track.properties().toStringMap();
+
+    if (trackKnownUsers && isNullOrEmpty(userId)) {
+      logger.verbose(
+          "Segment will only track users associated with a userId "
+              + "when the trackKnownUsers setting is enabled.");
+      return;
+    } else if (trackKnownUsers && !isNullOrEmpty(userId)) {
+      id = track.userId();
+    } else {
+      id = track.anonymousId();
+    }
+
+    client.track(event, id, properties);
+    logger.verbose("client.track(%s, %s, %s)", event, id, properties);
   }
 
   @Override
@@ -120,29 +121,32 @@ public class OptimizelyXIntegration extends Integration<Void> {
 
   private void pollOptimizelyClient() {
     final Handler handler = new Handler();
-    handler.postDelayed(new Runnable() {
-      @Override
-      public void run() {
-        try {
-          while (!client.isValid()) {
-            logger.verbose("The OptimizelyClient instance is invalid.");
-            Thread.sleep(60000);
-          }
-        } catch (InterruptedException e) {
-          isClientValid = true;
-          client.addNotificationListener(listener);
+    handler.postDelayed(
+        new Runnable() {
+          @Override
+          public void run() {
+            try {
+              while (!client.isValid()) {
+                Thread.sleep(30000);
+              }
 
-          if (!trackEvents.isEmpty()) {
-            for (TrackPayload t : trackEvents) {
-              track(t);
+              List<TrackPayload> trackEvents;
+
+              synchronized (OptimizelyXIntegration.this) {
+                isClientValid = true;
+                trackEvents = OptimizelyXIntegration.this.trackEvents;
+                OptimizelyXIntegration.this.trackEvents = null;
+              }
+              client.addNotificationListener(listener);
+              for (TrackPayload t : trackEvents) {
+                track(t);
+              }
+            } catch (InterruptedException e) {
+              logger.verbose(e.toString());
             }
           }
-
-          Thread.currentThread().interrupt();
-          return;
-        }
-      }
-    }, 60000);
+        },
+        30000);
   }
 
   private static class OptimizelyNotificationListener extends NotificationListener {
@@ -154,14 +158,14 @@ public class OptimizelyXIntegration extends Integration<Void> {
 
     @Override
     public void onExperimentActivated(
-            Experiment experiment, String userId, Map<String, String> attributes, Variation variation) {
+        Experiment experiment, String userId, Map<String, String> attributes, Variation variation) {
 
       Properties properties =
-              new Properties()
-                      .putValue("experimentId", experiment.getId())
-                      .putValue("experimentName", experiment.getKey())
-                      .putValue("variationId", variation.getId())
-                      .putValue("variationName", variation.getKey());
+          new Properties()
+              .putValue("experimentId", experiment.getId())
+              .putValue("experimentName", experiment.getKey())
+              .putValue("variationId", variation.getId())
+              .putValue("variationName", variation.getKey());
       analytics.track("Experiment Viewed", properties, options);
     }
   }

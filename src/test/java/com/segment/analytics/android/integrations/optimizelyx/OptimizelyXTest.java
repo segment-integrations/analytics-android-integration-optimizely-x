@@ -36,6 +36,7 @@ import static com.segment.analytics.android.integrations.optimizelyx.OptimizelyX
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.initMocks;
 
 @RunWith(RobolectricTestRunner.class)
@@ -48,15 +49,15 @@ public class OptimizelyXTest {
   @Mock Analytics analytics;
   private OptimizelyXIntegration integration;
   private OptimizelyClient client;
-  private OptimizelyManager manager;
 
   @Before public void setUp() {
     initMocks(this);
     PowerMockito.mock(OptimizelyClient.class);
     PowerMockito.mock(OptimizelyManager.class);
-
-    manager = mock(OptimizelyManager.class);
+    OptimizelyManager manager = mock(OptimizelyManager.class);
     client = mock(OptimizelyClient.class);
+    when(manager.getOptimizely()).thenReturn(client);
+    when(client.isValid()).thenReturn(true);
     integration = new OptimizelyXIntegration(analytics, manager, new ValueMap().putValue("trackKnownUsers", false), Logger.with(VERBOSE));
   }
 
