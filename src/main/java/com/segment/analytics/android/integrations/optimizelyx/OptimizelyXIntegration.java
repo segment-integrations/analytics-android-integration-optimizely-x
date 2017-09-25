@@ -32,7 +32,7 @@ import static com.segment.analytics.internal.Utils.isNullOrEmpty;
  */
 public class OptimizelyXIntegration extends Integration<Void> {
 
-  private static final String OPTIMIZELYX_KEY = "Optimizely";
+  private static final String OPTIMIZELYX_KEY = "Optimizely X";
   final NotificationListener listener;
   private final OptimizelyClient client;
   private final Logger logger;
@@ -74,10 +74,8 @@ public class OptimizelyXIntegration extends Integration<Void> {
 
     if (client.isValid()) {
       isClientValid = true;
-      logger.verbose("OptimizelyClient instance is valid. Ensure you have initialized Optimizely.");
       client.addNotificationListener(listener);
     } else {
-      logger.verbose("OptimizelyClient instance is invalid.");
       pollOptimizelyClient();
     }
   }
@@ -106,7 +104,6 @@ public class OptimizelyXIntegration extends Integration<Void> {
       logger.verbose("client.track(%s, %s, %s)", event, id, properties);
     } else {
       trackEvents.add(track);
-      logger.verbose("This event was pushed in an array " + track);
       for (TrackPayload t : trackEvents) {
         logger.verbose(t.toString());
       }
@@ -126,14 +123,12 @@ public class OptimizelyXIntegration extends Integration<Void> {
     handler.postDelayed(new Runnable() {
       @Override
       public void run() {
-        if (!client.isValid()) {
-          logger.verbose("The OptimizelyClient instance is invalid. Please check your Optimizely project id.");
-          try {
+        try {
+          while (!client.isValid()) {
+            logger.verbose("The OptimizelyClient instance is invalid.");
             Thread.sleep(60000);
-          } catch ( java.lang.InterruptedException e) {
           }
-          run();
-        } else {
+        } catch (InterruptedException e) {
           isClientValid = true;
           client.addNotificationListener(listener);
 
@@ -142,6 +137,9 @@ public class OptimizelyXIntegration extends Integration<Void> {
               track(t);
             }
           }
+
+          Thread.currentThread().interrupt();
+          return;
         }
       }
     }, 60000);

@@ -41,7 +41,7 @@ import static org.mockito.MockitoAnnotations.initMocks;
 @RunWith(RobolectricTestRunner.class)
 @Config(constants = BuildConfig.class)
 @PowerMockIgnore({ "org.mockito.*", "org.roboelectric.*", "android.*" })
-@PrepareForTest({ OptimizelyClient.class })
+@PrepareForTest({ OptimizelyClient.class})
 public class OptimizelyXTest {
 
   @Rule public PowerMockRule rule = new PowerMockRule();
@@ -53,7 +53,9 @@ public class OptimizelyXTest {
   @Before public void setUp() {
     initMocks(this);
     PowerMockito.mock(OptimizelyClient.class);
+    PowerMockito.mock(OptimizelyManager.class);
 
+    manager = mock(OptimizelyManager.class);
     client = mock(OptimizelyClient.class);
     integration = new OptimizelyXIntegration(analytics, manager, new ValueMap().putValue("trackKnownUsers", false), Logger.with(VERBOSE));
   }
