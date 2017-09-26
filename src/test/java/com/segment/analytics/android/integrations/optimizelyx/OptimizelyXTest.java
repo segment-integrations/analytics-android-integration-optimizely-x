@@ -12,6 +12,7 @@ import com.segment.analytics.Traits;
 import com.segment.analytics.ValueMap;
 import com.segment.analytics.core.tests.BuildConfig;
 import com.segment.analytics.integrations.Logger;
+import com.segment.analytics.integrations.TrackPayload;
 import com.segment.analytics.test.TrackPayloadBuilder;
 
 import org.junit.Before;
@@ -49,6 +50,7 @@ public class OptimizelyXTest {
   @Mock Analytics analytics;
   private OptimizelyXIntegration integration;
   private OptimizelyClient client;
+  private Map<String, String> defaultAttributes;
 
   @Before public void setUp() {
     initMocks(this);
@@ -56,6 +58,7 @@ public class OptimizelyXTest {
     PowerMockito.mock(OptimizelyManager.class);
     OptimizelyManager manager = mock(OptimizelyManager.class);
     client = mock(OptimizelyClient.class);
+    defaultAttributes = client.getDefaultAttributes();
     when(manager.getOptimizely()).thenReturn(client);
     when(client.isValid()).thenReturn(true);
     integration = new OptimizelyXIntegration(analytics, manager, new ValueMap().putValue("trackKnownUsers", false), Logger.with(VERBOSE));
@@ -68,7 +71,7 @@ public class OptimizelyXTest {
             .putValue("anonymousId", "456");
     integration.track(new TrackPayloadBuilder().properties(properties).traits(traits).event("event").build());
 
-    verify(client).track("event", "456", properties.toStringMap());
+    verify(client).track("event", "456", defaultAttributes, properties.toStringMap());
   }
 
   @Test public void trackKnownUsers() {
@@ -79,7 +82,7 @@ public class OptimizelyXTest {
             .putValue("userId", "123");
     integration.track(new TrackPayloadBuilder().properties(properties).traits(traits).event("event").build());
 
-    verify(client).track("event", "123", properties.toStringMap());
+    verify(client).track("event", "123", defaultAttributes, properties.toStringMap());
   }
 
   @Test public void trackKnownUsersNoUserId() {
@@ -89,7 +92,7 @@ public class OptimizelyXTest {
             .putValue("anonymousId", "456");
     integration.track(new TrackPayloadBuilder().traits(traits).event("event").build());
 
-    verify(client,times(0)).track("event", "123");
+    verify(client,times(0)).track("event", "123", defaultAttributes);
   }
 
   @Test public void onExperimentActivated() {

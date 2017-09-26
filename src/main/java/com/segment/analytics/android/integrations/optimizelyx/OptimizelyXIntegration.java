@@ -1,8 +1,6 @@
 package com.segment.analytics.android.integrations.optimizelyx;
 
 import android.os.Handler;
-import android.os.Looper;
-import android.os.Message;
 
 import com.optimizely.ab.android.sdk.OptimizelyClient;
 import com.optimizely.ab.android.sdk.OptimizelyManager;
@@ -18,6 +16,7 @@ import com.segment.analytics.integrations.Logger;
 import com.segment.analytics.integrations.TrackPayload;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -44,8 +43,9 @@ public class OptimizelyXIntegration extends Integration<Void> {
   private boolean isClientValid = false;
   boolean trackKnownUsers;
   static final Options options = new Options().setIntegration(OPTIMIZELYX_KEY, false);
+  private Map<String, String> defaultAttributes = new HashMap<>();
   private List<TrackPayload> trackEvents = new ArrayList<>();
-  static final Handler HANDLER = new Handler(Looper.getMainLooper());
+  private final Handler HANDLER = new Handler();
 
   public static Factory factory(OptimizelyManager manager) {
     return new Factory(manager);
@@ -80,6 +80,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
 
     if (client.isValid()) {
       isClientValid = true;
+      defaultAttributes = client.getDefaultAttributes();
       client.addNotificationListener(listener);
     } else {
       pollOptimizelyClient();
@@ -113,8 +114,8 @@ public class OptimizelyXIntegration extends Integration<Void> {
       id = track.anonymousId();
     }
 
-    client.track(event, id, properties);
-    logger.verbose("client.track(%s, %s, %s)", event, id, properties);
+    client.track(event, id, defaultAttributes, properties);
+    logger.verbose("client.track(%s, %s, %s, %s)", event, id, defaultAttributes, properties);
   }
 
   @Override
@@ -126,42 +127,36 @@ public class OptimizelyXIntegration extends Integration<Void> {
   }
 
   private void pollOptimizelyClient() {
-    final ScheduledExecutorService scheduler =
-            Executors.newScheduledThreadPool(1);
+    final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
-    final Runnable poll = new Runnable() {
-      @Override
-      public void run() {
-        try {
+    final Runnable poll =
+      new Runnable() {
+        @Override
+        public void run() {
           if (client.isValid()) {
             synchronized (OptimizelyXIntegration.this) {
               isClientValid = true;
             }
-
             HANDLER.post(
-                    new Runnable() {
-                      @Override
-                      public void run() {
-                        addListenerAndFlushTracks();
-                      }
-                    });
-
+              new Runnable() {
+                @Override
+                public void run() {
+                  setClientAndFlushTracks();
+                }
+              });
             scheduler.shutdown();
           }
-        } catch (Exception e) {
-          logger.verbose(e.toString());
         }
-      }
-    };
+      };
     scheduler.scheduleAtFixedRate(poll, 30, 30, SECONDS);
   }
 
-  private void addListenerAndFlushTracks() {
+  private void setClientAndFlushTracks() {
+    defaultAttributes = client.getDefaultAttributes();
     client.addNotificationListener(listener);
 
     for (TrackPayload t : trackEvents) {
       track(t);
-      logger.verbose(t.toString());
     }
 
     trackEvents = null;
