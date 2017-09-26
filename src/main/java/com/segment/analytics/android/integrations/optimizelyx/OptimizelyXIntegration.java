@@ -1,6 +1,8 @@
 package com.segment.analytics.android.integrations.optimizelyx;
 
 import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 
 import com.optimizely.ab.android.sdk.OptimizelyClient;
 import com.optimizely.ab.android.sdk.OptimizelyManager;
@@ -18,8 +20,11 @@ import com.segment.analytics.integrations.TrackPayload;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.segment.analytics.internal.Utils.isNullOrEmpty;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * Optimizely X helps marketers and growth hackers make smart decisions through A/B testing.
@@ -40,6 +45,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
   boolean trackKnownUsers;
   static final Options options = new Options().setIntegration(OPTIMIZELYX_KEY, false);
   private List<TrackPayload> trackEvents = new ArrayList<>();
+  static final Handler HANDLER = new Handler(Looper.getMainLooper());
 
   public static Factory factory(OptimizelyManager manager) {
     return new Factory(manager);
@@ -120,33 +126,45 @@ public class OptimizelyXIntegration extends Integration<Void> {
   }
 
   private void pollOptimizelyClient() {
-    final Handler handler = new Handler();
-    handler.postDelayed(
-        new Runnable() {
-          @Override
-          public void run() {
-            try {
-              while (!client.isValid()) {
-                Thread.sleep(30000);
-              }
+    final ScheduledExecutorService scheduler =
+            Executors.newScheduledThreadPool(1);
 
-              List<TrackPayload> trackEvents;
-
-              synchronized (OptimizelyXIntegration.this) {
-                isClientValid = true;
-                trackEvents = OptimizelyXIntegration.this.trackEvents;
-                OptimizelyXIntegration.this.trackEvents = null;
-              }
-              client.addNotificationListener(listener);
-              for (TrackPayload t : trackEvents) {
-                track(t);
-              }
-            } catch (InterruptedException e) {
-              logger.verbose(e.toString());
+    final Runnable poll = new Runnable() {
+      @Override
+      public void run() {
+        try {
+          if (client.isValid()) {
+            synchronized (OptimizelyXIntegration.this) {
+              isClientValid = true;
             }
+
+            HANDLER.post(
+                    new Runnable() {
+                      @Override
+                      public void run() {
+                        addListenerAndFlushTracks();
+                      }
+                    });
+
+            scheduler.shutdown();
           }
-        },
-        30000);
+        } catch (Exception e) {
+          logger.verbose(e.toString());
+        }
+      }
+    };
+    scheduler.scheduleAtFixedRate(poll, 30, 30, SECONDS);
+  }
+
+  private void addListenerAndFlushTracks() {
+    client.addNotificationListener(listener);
+
+    for (TrackPayload t : trackEvents) {
+      track(t);
+      logger.verbose(t.toString());
+    }
+
+    trackEvents = null;
   }
 
   private static class OptimizelyNotificationListener extends NotificationListener {
