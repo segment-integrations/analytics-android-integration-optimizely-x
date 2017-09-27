@@ -12,7 +12,6 @@ import com.segment.analytics.Traits;
 import com.segment.analytics.ValueMap;
 import com.segment.analytics.core.tests.BuildConfig;
 import com.segment.analytics.integrations.Logger;
-import com.segment.analytics.integrations.TrackPayload;
 import com.segment.analytics.test.TrackPayloadBuilder;
 
 import org.junit.Before;
@@ -34,6 +33,7 @@ import java.util.Map;
 
 import static com.segment.analytics.Analytics.LogLevel.VERBOSE;
 import static com.segment.analytics.android.integrations.optimizelyx.OptimizelyXIntegration.options;
+import static org.mockito.Mockito.after;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -60,11 +60,12 @@ public class OptimizelyXTest {
     client = mock(OptimizelyClient.class);
     defaultAttributes = client.getDefaultAttributes();
     when(manager.getOptimizely()).thenReturn(client);
-    when(client.isValid()).thenReturn(true);
+    when(client.isValid()).thenReturn(false, true);
     integration = new OptimizelyXIntegration(analytics, manager, new ValueMap().putValue("trackKnownUsers", false), Logger.with(VERBOSE));
   }
 
   @Test public void track() {
+    integration.isClientValid = true;
     Properties properties = new Properties();
     Traits traits = new Traits()
             .putValue("userId", "123")
@@ -75,6 +76,7 @@ public class OptimizelyXTest {
   }
 
   @Test public void trackKnownUsers() {
+    integration.isClientValid = true;
     integration.trackKnownUsers = true;
 
     Properties properties = new Properties();
@@ -86,6 +88,7 @@ public class OptimizelyXTest {
   }
 
   @Test public void trackKnownUsersNoUserId() {
+    integration.isClientValid = true;
     integration.trackKnownUsers = true;
 
     Traits traits = new Traits()
@@ -93,6 +96,15 @@ public class OptimizelyXTest {
     integration.track(new TrackPayloadBuilder().traits(traits).event("event").build());
 
     verify(client,times(0)).track("event", "123", defaultAttributes);
+  }
+
+  @Test public void pollOptimizelyClient() {
+    Properties properties = new Properties();
+    Traits traits = new Traits()
+            .putValue("anonymousId", "456");
+    integration.track(new TrackPayloadBuilder().properties(properties).traits(traits).event("event").build());
+
+    verify(client, after(60000)).track("event", "456", defaultAttributes, properties.toStringMap());
   }
 
   @Test public void onExperimentActivated() {
