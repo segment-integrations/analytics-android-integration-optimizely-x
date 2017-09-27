@@ -12,6 +12,7 @@ import com.segment.analytics.Traits;
 import com.segment.analytics.ValueMap;
 import com.segment.analytics.core.tests.BuildConfig;
 import com.segment.analytics.integrations.Logger;
+import com.segment.analytics.test.IdentifyPayloadBuilder;
 import com.segment.analytics.test.TrackPayloadBuilder;
 
 import org.junit.Before;
@@ -49,7 +50,7 @@ public class OptimizelyXTest {
   @Mock Analytics analytics;
   private OptimizelyXIntegration integration;
   private OptimizelyClient client;
-  private Map<String, String> defaultAttributes;
+  private Map<String, String> attributes = new HashMap<>();
 
   @Before public void setUp() {
     initMocks(this);
@@ -57,7 +58,6 @@ public class OptimizelyXTest {
     PowerMockito.mock(OptimizelyManager.class);
     OptimizelyManager manager = mock(OptimizelyManager.class);
     client = mock(OptimizelyClient.class);
-    defaultAttributes = client.getDefaultAttributes();
     when(manager.getOptimizely()).thenReturn(client);
     when(client.isValid()).thenReturn(true);
     integration = new OptimizelyXIntegration(analytics, manager, new ValueMap().putValue("trackKnownUsers", false), Logger.with(VERBOSE));
@@ -70,7 +70,7 @@ public class OptimizelyXTest {
             .putValue("anonymousId", "456");
     integration.track(new TrackPayloadBuilder().properties(properties).traits(traits).event("event").build());
 
-    verify(client).track("event", "456", defaultAttributes, properties.toStringMap());
+    verify(client).track("event", "456", attributes, properties.toStringMap());
   }
 
   @Test public void trackKnownUsers() {
@@ -81,7 +81,7 @@ public class OptimizelyXTest {
             .putValue("userId", "123");
     integration.track(new TrackPayloadBuilder().properties(properties).traits(traits).event("event").build());
 
-    verify(client).track("event", "123", defaultAttributes, properties.toStringMap());
+    verify(client).track("event", "123", attributes, properties.toStringMap());
   }
 
   @Test public void trackKnownUsersNoUserId() {
@@ -91,7 +91,26 @@ public class OptimizelyXTest {
             .putValue("anonymousId", "456");
     integration.track(new TrackPayloadBuilder().traits(traits).event("event").build());
 
-    verify(client,times(0)).track("event", "123", defaultAttributes);
+    verify(client,times(0)).track("event", "123", attributes);
+  }
+
+  @Test public void mapAttributesAndEventTags() {
+    integration.trackKnownUsers = true;
+
+    Traits traits = new Traits()
+            .putValue("userId", "123")
+            .putValue("gender", "male");
+    integration.identify(new IdentifyPayloadBuilder().traits(traits).build());
+
+    Properties properties = new Properties()
+            .putValue("foo", "bar");
+    Traits trackTraits = new Traits()
+            .putValue("userId", "123");
+    integration.track(new TrackPayloadBuilder().properties(properties).traits(trackTraits).event("event").build());
+
+    attributes.putAll(traits.toStringMap());
+
+    verify(client).track("event", "123", attributes, properties.toStringMap());
   }
 
   @Test public void flushTracksFromQueue() {
@@ -101,7 +120,7 @@ public class OptimizelyXTest {
     integration.trackEvents.add(new TrackPayloadBuilder().properties(properties).traits(traits).event("event").build());
     integration.setClientAndFlushTracks();
 
-    verify(client).track("event", "456", defaultAttributes, properties.toStringMap());
+    verify(client).track("event", "456", attributes, properties.toStringMap());
   }
 
   @Test public void onExperimentActivated() {

@@ -11,6 +11,7 @@ import com.segment.analytics.Analytics;
 import com.segment.analytics.Options;
 import com.segment.analytics.Properties;
 import com.segment.analytics.ValueMap;
+import com.segment.analytics.integrations.IdentifyPayload;
 import com.segment.analytics.integrations.Integration;
 import com.segment.analytics.integrations.Logger;
 import com.segment.analytics.integrations.TrackPayload;
@@ -43,7 +44,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
   private boolean isClientValid = false;
   boolean trackKnownUsers;
   static final Options options = new Options().setIntegration(OPTIMIZELYX_KEY, false);
-  private Map<String, String> defaultAttributes = new HashMap<>();
+  private Map<String, String> attributes = new HashMap<>();
   List<TrackPayload> trackEvents = new ArrayList<>();
   private final Handler HANDLER = new Handler();
 
@@ -80,10 +81,18 @@ public class OptimizelyXIntegration extends Integration<Void> {
 
     if (client.isValid()) {
       isClientValid = true;
-      defaultAttributes = client.getDefaultAttributes();
       client.addNotificationListener(listener);
     } else {
       pollOptimizelyClient();
+    }
+  }
+
+  @Override
+  public void identify(IdentifyPayload identify) {
+    super.identify(identify);
+
+    if (!isNullOrEmpty(identify.traits())) {
+      attributes = identify.traits().toStringMap();
     }
   }
 
@@ -114,8 +123,8 @@ public class OptimizelyXIntegration extends Integration<Void> {
       id = track.anonymousId();
     }
 
-    client.track(event, id, defaultAttributes, properties);
-    logger.verbose("client.track(%s, %s, %s, %s)", event, id, defaultAttributes, properties);
+    client.track(event, id, attributes, properties);
+    logger.verbose("client.track(%s, %s, %s, %s)", event, id, attributes, properties);
   }
 
   @Override
@@ -130,29 +139,28 @@ public class OptimizelyXIntegration extends Integration<Void> {
     final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     final Runnable poll =
-      new Runnable() {
-        @Override
-        public void run() {
-          if (client.isValid()) {
-            synchronized (OptimizelyXIntegration.this) {
-              isClientValid = true;
+        new Runnable() {
+          @Override
+          public void run() {
+            if (client.isValid()) {
+              synchronized (OptimizelyXIntegration.this) {
+                isClientValid = true;
+              }
+              HANDLER.post(
+                  new Runnable() {
+                    @Override
+                    public void run() {
+                      setClientAndFlushTracks();
+                    }
+                  });
+              scheduler.shutdown();
             }
-            HANDLER.post(
-              new Runnable() {
-                @Override
-                public void run() {
-                  setClientAndFlushTracks();
-                }
-              });
-            scheduler.shutdown();
           }
-        }
-      };
+        };
     scheduler.scheduleAtFixedRate(poll, 60, 60, SECONDS);
   }
 
   protected void setClientAndFlushTracks() {
-    defaultAttributes = client.getDefaultAttributes();
     client.addNotificationListener(listener);
 
     for (TrackPayload t : trackEvents) {
