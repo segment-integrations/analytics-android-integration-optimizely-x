@@ -40,11 +40,11 @@ public class OptimizelyXIntegration extends Integration<Void> {
   final NotificationListener listener;
   private final OptimizelyClient client;
   private final Logger logger;
-  boolean isClientValid = false;
+  private boolean isClientValid = false;
   boolean trackKnownUsers;
   static final Options options = new Options().setIntegration(OPTIMIZELYX_KEY, false);
   private Map<String, String> defaultAttributes = new HashMap<>();
-  private List<TrackPayload> trackEvents = new ArrayList<>();
+  List<TrackPayload> trackEvents = new ArrayList<>();
   private final Handler HANDLER = new Handler();
 
   public static Factory factory(OptimizelyManager manager) {
@@ -151,7 +151,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
     scheduler.scheduleAtFixedRate(poll, 60, 60, SECONDS);
   }
 
-  private void setClientAndFlushTracks() {
+  protected void setClientAndFlushTracks() {
     defaultAttributes = client.getDefaultAttributes();
     client.addNotificationListener(listener);
 
