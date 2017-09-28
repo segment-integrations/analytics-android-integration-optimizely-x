@@ -102,25 +102,29 @@ public class OptimizelyXIntegration extends Integration<Void> {
 
     synchronized (this) {
       if (!isClientValid) {
+        logger.verbose("Optimizely not initialized. Enqueueing action: %s", track);
         trackEvents.add(track);
         return;
       }
     }
 
-    String id;
+    // Segment will default sending `track` calls with `anonymousId`s since Optimizely X does not alias known and unknown users
+    // https://developers.optimizely.com/x/solutions/sdks/reference/index.html?language=objectivec&platform=mobile#user-ids
     String userId = track.userId();
-    String event = track.event();
-    Map<String, String> properties = track.properties().toStringMap();
 
     if (trackKnownUsers && isNullOrEmpty(userId)) {
       logger.verbose(
           "Segment will only track users associated with a userId "
               + "when the trackKnownUsers setting is enabled.");
       return;
-    } else if (trackKnownUsers && !isNullOrEmpty(userId)) {
+    }
+
+    String id = track.anonymousId();
+    String event = track.event();
+    Map<String, String> properties = track.properties().toStringMap();
+
+    if (trackKnownUsers && !isNullOrEmpty(userId)) {
       id = track.userId();
-    } else {
-      id = track.anonymousId();
     }
 
     client.track(event, id, attributes, properties);
@@ -163,6 +167,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
 
   private void setClientAndFlushTracks() {
     client.addNotificationListener(listener);
+    logger.verbose("Flushing track queue");
 
     for (TrackPayload t : trackEvents) {
       track(t);
