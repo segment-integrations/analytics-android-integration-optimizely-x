@@ -35,6 +35,7 @@ import java.util.Map;
 import static com.segment.analytics.Analytics.LogLevel.VERBOSE;
 import static com.segment.analytics.android.integrations.optimizelyx.OptimizelyXIntegration.options;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -59,8 +60,8 @@ public class OptimizelyXTest {
     OptimizelyManager manager = mock(OptimizelyManager.class);
     client = mock(OptimizelyClient.class);
     when(manager.getOptimizely()).thenReturn(client);
-    when(client.isValid()).thenReturn(true);
     integration = new OptimizelyXIntegration(analytics, manager, new ValueMap().putValue("trackKnownUsers", false), Logger.with(VERBOSE));
+    integration.isClientValid = true;
   }
 
   @Test public void track() {
@@ -113,14 +114,15 @@ public class OptimizelyXTest {
     verify(client).track("event", "123", attributes, properties.toStringMap());
   }
 
-  @Test public void flushTracksFromQueue() {
+  @Test public void pollOptimizelyClient() {
+    when(client.isValid()).thenReturn(false, true);
+
     Properties properties = new Properties();
     Traits traits = new Traits()
             .putValue("anonymousId", "456");
-    integration.trackEvents.add(new TrackPayloadBuilder().properties(properties).traits(traits).event("event").build());
-    integration.setClientAndFlushTracks();
+    integration.track(new TrackPayloadBuilder().properties(properties).traits(traits).event("event").build());
 
-    verify(client).track("event", "456", attributes, properties.toStringMap());
+    verify(client, timeout(60000)).track("event", "456", attributes, properties.toStringMap());
   }
 
   @Test public void onExperimentActivated() {

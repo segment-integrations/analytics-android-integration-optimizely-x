@@ -39,14 +39,14 @@ public class OptimizelyXIntegration extends Integration<Void> {
 
   private static final String OPTIMIZELYX_KEY = "Optimizely X";
   final NotificationListener listener;
-  private final OptimizelyClient client;
+  private OptimizelyClient client;
   private final Logger logger;
-  private boolean isClientValid = false;
+  boolean isClientValid = false;
   boolean trackKnownUsers;
   static final Options options = new Options().setIntegration(OPTIMIZELYX_KEY, false);
   private Map<String, String> attributes = new HashMap<>();
-  List<TrackPayload> trackEvents = new ArrayList<>();
-  private final Handler HANDLER = new Handler();
+  private List<TrackPayload> trackEvents = new ArrayList<>();
+  private final Handler handler = new Handler();
 
   public static Factory factory(OptimizelyManager manager) {
     return new Factory(manager);
@@ -83,7 +83,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
       isClientValid = true;
       client.addNotificationListener(listener);
     } else {
-      pollOptimizelyClient();
+      pollOptimizelyClient(manager);
     }
   }
 
@@ -135,18 +135,19 @@ public class OptimizelyXIntegration extends Integration<Void> {
     logger.verbose("client.removeNotificationListener(listener)");
   }
 
-  private void pollOptimizelyClient() {
+  private void pollOptimizelyClient(final OptimizelyManager manager) {
     final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     final Runnable poll =
         new Runnable() {
           @Override
           public void run() {
+            OptimizelyXIntegration.this.client = manager.getOptimizely();
             if (client.isValid()) {
               synchronized (OptimizelyXIntegration.this) {
                 isClientValid = true;
               }
-              HANDLER.post(
+              handler.post(
                   new Runnable() {
                     @Override
                     public void run() {
@@ -160,7 +161,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
     scheduler.scheduleAtFixedRate(poll, 60, 60, SECONDS);
   }
 
-  protected void setClientAndFlushTracks() {
+  private void setClientAndFlushTracks() {
     client.addNotificationListener(listener);
 
     for (TrackPayload t : trackEvents) {
