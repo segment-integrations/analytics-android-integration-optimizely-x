@@ -63,7 +63,7 @@ public class OptimizelyXTest {
     when(manager.getOptimizely()).thenReturn(client);
     integration = new OptimizelyXIntegration(analytics, manager, new ValueMap()
             .putValue("trackKnownUsers", false)
-            .putValue("nonInteraction", false)
+            .putValue("nonInteraction", true)
             .putValue("listen", true),
             Logger.with(VERBOSE));
     integration.isClientValid = true;
@@ -131,6 +131,7 @@ public class OptimizelyXTest {
   }
 
   @Test public void onExperimentActivated() {
+    OptimizelyXIntegration.nonInteraction = false;
     String id = "123";
     String experimentKey = "experiment_key";
     List<String> audienceIds = new ArrayList<>();
@@ -161,7 +162,6 @@ public class OptimizelyXTest {
   }
 
   @Test public void nonInteractionEnabled() {
-    OptimizelyXIntegration.nonInteraction = true;
     String id = "123";
     String experimentKey = "experiment_key";
     List<String> audienceIds = new ArrayList<>();

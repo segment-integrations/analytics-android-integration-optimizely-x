@@ -79,7 +79,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
     this.logger = logger;
 
     trackKnownUsers = settings.getBoolean("trackKnownUsers", false);
-    nonInteraction = settings.getBoolean("nonInteraction", false);
+    nonInteraction = settings.getBoolean("nonInteraction", true);
     listen = settings.getBoolean("listen", true);
 
     if (client.isValid()) {
@@ -214,10 +214,11 @@ public class OptimizelyXIntegration extends Integration<Void> {
               .putValue("experimentId", experiment.getId())
               .putValue("experimentName", experiment.getKey())
               .putValue("variationId", variation.getId())
-              .putValue("variationName", variation.getKey());
+              .putValue("variationName", variation.getKey())
+              .putValue("nonInteraction", 1);
 
-      if (nonInteraction) {
-        properties.putValue("nonInteraction", 1);
+      if (!nonInteraction) {
+        properties.remove("nonInteraction");
       }
       analytics.track("Experiment Viewed", properties, options);
     }
