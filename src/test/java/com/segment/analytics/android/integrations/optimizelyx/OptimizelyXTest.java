@@ -1,6 +1,5 @@
 package com.segment.analytics.android.integrations.optimizelyx;
 
-import com.optimizely.ab.Optimizely;
 import com.optimizely.ab.android.sdk.OptimizelyClient;
 import com.optimizely.ab.android.sdk.OptimizelyManager;
 import com.optimizely.ab.config.Experiment;
@@ -34,8 +33,8 @@ import java.util.List;
 import java.util.Map;
 
 import static com.segment.analytics.Analytics.LogLevel.VERBOSE;
-import static com.segment.analytics.android.integrations.optimizelyx.OptimizelyXIntegration.options;
 import static com.segment.analytics.android.integrations.optimizelyx.OptimizelyXIntegration.OptimizelyNotificationListener;
+import static com.segment.analytics.android.integrations.optimizelyx.OptimizelyXIntegration.options;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
@@ -62,7 +61,11 @@ public class OptimizelyXTest {
     OptimizelyManager manager = mock(OptimizelyManager.class);
     client = mock(OptimizelyClient.class);
     when(manager.getOptimizely()).thenReturn(client);
-    integration = new OptimizelyXIntegration(analytics, manager, new ValueMap().putValue("trackKnownUsers", false).putValue("nonInteraction", false).putValue("listen", true), Logger.with(VERBOSE));
+    integration = new OptimizelyXIntegration(analytics, manager, new ValueMap()
+            .putValue("trackKnownUsers", false)
+            .putValue("nonInteraction", false)
+            .putValue("listen", true),
+            Logger.with(VERBOSE));
     integration.isClientValid = true;
   }
 
@@ -155,6 +158,43 @@ public class OptimizelyXTest {
             .putValue("variationName", "variation_key");
 
     verify(analytics).track("Experiment Viewed", properties, options);
+  }
+
+  @Test public void nonInteractionEnabled() {
+    OptimizelyXIntegration.nonInteraction = true;
+    String id = "123";
+    String experimentKey = "experiment_key";
+    List<String> audienceIds = new ArrayList<>();
+    List<Variation> variations = new ArrayList<>();
+    Map<String, String> userIdToVariationKeyMap = new HashMap<>();
+    List<TrafficAllocation> trafficAllocation = new ArrayList<>();
+    String groupId = "123";
+
+    String variationKey = "variation_key";
+    List<LiveVariableUsageInstance> liveVariableUsageInstancess = new ArrayList<>();
+
+    Experiment experiment = new Experiment(id, experimentKey, null, null, audienceIds, variations, userIdToVariationKeyMap, trafficAllocation, groupId);
+    String userId = "123";
+    Map<String, String> attributes = new HashMap<>();
+    attributes.put("name", "brennan");
+    Variation variation = new Variation(id, variationKey, liveVariableUsageInstancess);
+
+    OptimizelyNotificationListener listener = new OptimizelyNotificationListener(analytics);
+    listener.onExperimentActivated(experiment, userId, attributes, variation);
+
+    Properties properties = new Properties()
+            .putValue("experimentId", "123")
+            .putValue("experimentName", "experiment_key")
+            .putValue("variationId", "123")
+            .putValue("variationName", "variation_key")
+            .putValue("nonInteraction", 1);
+
+    verify(analytics).track("Experiment Viewed", properties, options);
+  }
+
+  @Test public void listenerDisabled() {
+    integration.listen = false;
+    verify(client, times(0)).addNotificationListener(integration.listener);
   }
 
   @Test public void reset() {

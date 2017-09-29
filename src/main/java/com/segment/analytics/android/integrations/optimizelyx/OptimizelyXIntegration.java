@@ -43,9 +43,9 @@ public class OptimizelyXIntegration extends Integration<Void> {
   private final Logger logger;
   boolean isClientValid = false;
   boolean trackKnownUsers;
-  private static boolean nonInteraction;
-  private static boolean listen;
-  static Options options = new Options().setIntegration(OPTIMIZELYX_KEY, false);
+  static boolean nonInteraction;
+  boolean listen;
+  static final Options options = new Options().setIntegration(OPTIMIZELYX_KEY, false);
   private Map<String, String> attributes = new HashMap<>();
   private List<TrackPayload> trackEvents = new ArrayList<>();
   private final Handler handler = new Handler();
@@ -85,7 +85,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
     if (client.isValid()) {
       isClientValid = true;
       if (listen) {
-        createListener(analytics);
+        this.listener = createListener(analytics);
         client.addNotificationListener(listener);
       }
       return;
@@ -183,7 +183,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
   }
 
   private void setClientAndFlushTracks(Analytics analytics) {
-    listener = createListener(analytics);
+    this.listener = createListener(analytics);
     client.addNotificationListener(listener);
     logger.verbose("Flushing track queue");
 
@@ -217,9 +217,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
               .putValue("variationName", variation.getKey());
 
       if (nonInteraction) {
-        Map<String, Object> nonInteractionOptions = new HashMap<>();
-        nonInteractionOptions.put("nonInteraction", Integer.valueOf(1));
-        options = options.setIntegrationOptions("Google Analytics", nonInteractionOptions);
+        properties.putValue("nonInteraction", 1);
       }
       analytics.track("Experiment Viewed", properties, options);
     }
