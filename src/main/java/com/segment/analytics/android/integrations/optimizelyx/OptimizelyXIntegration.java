@@ -38,12 +38,14 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class OptimizelyXIntegration extends Integration<Void> {
 
   private static final String OPTIMIZELYX_KEY = "Optimizely X";
-  final NotificationListener listener;
+  NotificationListener listener;
   private OptimizelyClient client;
   private final Logger logger;
   boolean isClientValid = false;
   boolean trackKnownUsers;
-  static final Options options = new Options().setIntegration(OPTIMIZELYX_KEY, false);
+  private static boolean nonInteraction;
+  private static boolean listen;
+  static Options options = new Options().setIntegration(OPTIMIZELYX_KEY, false);
   private Map<String, String> attributes = new HashMap<>();
   private List<TrackPayload> trackEvents = new ArrayList<>();
   private final Handler handler = new Handler();
@@ -77,13 +79,19 @@ public class OptimizelyXIntegration extends Integration<Void> {
     this.logger = logger;
 
     trackKnownUsers = settings.getBoolean("trackKnownUsers", false);
-    listener = new OptimizelyNotificationListener(analytics);
+    nonInteraction = settings.getBoolean("nonInteraction", false);
+    listen = settings.getBoolean("listen", true);
 
     if (client.isValid()) {
       isClientValid = true;
-      client.addNotificationListener(listener);
-    } else {
-      pollOptimizelyClient(manager);
+      if (listen) {
+        createListener(analytics);
+        client.addNotificationListener(listener);
+      }
+      return;
+    }
+    if (!client.isValid()) {
+      pollOptimizelyClient(manager, analytics);
     }
   }
 
@@ -100,11 +108,20 @@ public class OptimizelyXIntegration extends Integration<Void> {
   public void track(TrackPayload track) {
     super.track(track);
 
+    int queueSize = trackEvents.size();
+
     synchronized (this) {
       if (!isClientValid) {
         logger.verbose("Optimizely not initialized. Enqueueing action: %s", track);
-        trackEvents.add(track);
-        return;
+        if (queueSize < 100) {
+          trackEvents.add(track);
+          return;
+        }
+        if (queueSize >= 100) {
+          trackEvents.remove(0);
+          trackEvents.add(track);
+          return;
+        }
       }
     }
 
@@ -139,7 +156,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
     logger.verbose("client.removeNotificationListener(listener)");
   }
 
-  private void pollOptimizelyClient(final OptimizelyManager manager) {
+  private void pollOptimizelyClient(final OptimizelyManager manager, final Analytics analytics) {
     final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     final Runnable poll =
@@ -155,7 +172,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
                   new Runnable() {
                     @Override
                     public void run() {
-                      setClientAndFlushTracks();
+                      setClientAndFlushTracks(analytics);
                     }
                   });
               scheduler.shutdown();
@@ -165,7 +182,8 @@ public class OptimizelyXIntegration extends Integration<Void> {
     scheduler.scheduleAtFixedRate(poll, 60, 60, SECONDS);
   }
 
-  private void setClientAndFlushTracks() {
+  private void setClientAndFlushTracks(Analytics analytics) {
+    listener = createListener(analytics);
     client.addNotificationListener(listener);
     logger.verbose("Flushing track queue");
 
@@ -176,7 +194,11 @@ public class OptimizelyXIntegration extends Integration<Void> {
     trackEvents = null;
   }
 
-  private static class OptimizelyNotificationListener extends NotificationListener {
+  private OptimizelyNotificationListener createListener(Analytics analytics) {
+    return new OptimizelyNotificationListener(analytics);
+  }
+
+  static class OptimizelyNotificationListener extends NotificationListener {
     private final Analytics analytics;
 
     public OptimizelyNotificationListener(Analytics analytics) {
@@ -193,6 +215,12 @@ public class OptimizelyXIntegration extends Integration<Void> {
               .putValue("experimentName", experiment.getKey())
               .putValue("variationId", variation.getId())
               .putValue("variationName", variation.getKey());
+
+      if (nonInteraction) {
+        Map<String, Object> nonInteractionOptions = new HashMap<>();
+        nonInteractionOptions.put("nonInteraction", Integer.valueOf(1));
+        options = options.setIntegrationOptions("Google Analytics", nonInteractionOptions);
+      }
       analytics.track("Experiment Viewed", properties, options);
     }
   }
