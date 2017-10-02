@@ -66,7 +66,6 @@ public class OptimizelyXTest {
             .putValue("nonInteraction", true)
             .putValue("listen", true),
             Logger.with(VERBOSE));
-    integration.isClientValid = true;
   }
 
   @Test public void track() {

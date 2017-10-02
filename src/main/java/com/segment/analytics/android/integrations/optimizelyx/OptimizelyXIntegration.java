@@ -10,6 +10,7 @@ import com.optimizely.ab.notification.NotificationListener;
 import com.segment.analytics.Analytics;
 import com.segment.analytics.Options;
 import com.segment.analytics.Properties;
+import com.segment.analytics.Traits;
 import com.segment.analytics.ValueMap;
 import com.segment.analytics.integrations.IdentifyPayload;
 import com.segment.analytics.integrations.Integration;
@@ -41,7 +42,6 @@ public class OptimizelyXIntegration extends Integration<Void> {
   NotificationListener listener;
   private OptimizelyClient client;
   private final Logger logger;
-  boolean isClientValid = false;
   boolean trackKnownUsers;
   static boolean nonInteraction;
   boolean listen;
@@ -83,14 +83,11 @@ public class OptimizelyXIntegration extends Integration<Void> {
     listen = settings.getBoolean("listen", true);
 
     if (client.isValid()) {
-      isClientValid = true;
       if (listen) {
         this.listener = createListener(analytics);
         client.addNotificationListener(listener);
       }
-      return;
-    }
-    if (!client.isValid()) {
+    } else {
       pollOptimizelyClient(manager, analytics);
     }
   }
@@ -99,8 +96,10 @@ public class OptimizelyXIntegration extends Integration<Void> {
   public void identify(IdentifyPayload identify) {
     super.identify(identify);
 
-    if (!isNullOrEmpty(identify.traits())) {
-      attributes = identify.traits().toStringMap();
+    Traits traits = identify.traits();
+
+    if (!isNullOrEmpty(traits)) {
+      attributes = traits.toStringMap();
     }
   }
 
@@ -111,7 +110,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
     int queueSize = trackEvents.size();
 
     synchronized (this) {
-      if (!isClientValid) {
+      if (client.isValid()) {
         logger.verbose("Optimizely not initialized. Enqueueing action: %s", track);
         if (queueSize < 100) {
           trackEvents.add(track);
@@ -119,6 +118,8 @@ public class OptimizelyXIntegration extends Integration<Void> {
         }
         if (queueSize >= 100) {
           trackEvents.remove(0);
+          logger.verbose("Event queue has exceeded limit. Dropping event at index zero: %s",
+                  trackEvents.get(0));
           trackEvents.add(track);
           return;
         }
@@ -163,11 +164,10 @@ public class OptimizelyXIntegration extends Integration<Void> {
         new Runnable() {
           @Override
           public void run() {
-            OptimizelyXIntegration.this.client = manager.getOptimizely();
+            synchronized (OptimizelyXIntegration.this) {
+              OptimizelyXIntegration.this.client = manager.getOptimizely();
+            }
             if (client.isValid()) {
-              synchronized (OptimizelyXIntegration.this) {
-                isClientValid = true;
-              }
               handler.post(
                   new Runnable() {
                     @Override
