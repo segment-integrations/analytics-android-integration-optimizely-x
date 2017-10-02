@@ -34,7 +34,7 @@ dependencies {
     mavenCentral()
   }
 
-  compile 'com.optimizely.ab:android-sdk:+'
+  compile 'com.optimizely.ab:android-sdk:1.4.0'
 
   compile 'com.segment.analytics.android:analytics:4.0.0'
 

@@ -118,8 +118,9 @@ public class OptimizelyXIntegration extends Integration<Void> {
         }
         if (queueSize >= 100) {
           trackEvents.remove(0);
-          logger.verbose("Event queue has exceeded limit. Dropping event at index zero: %s",
-                  trackEvents.get(0));
+          logger.verbose(
+              "Event queue has exceeded limit. Dropping event at index zero: %s",
+              trackEvents.get(0));
           trackEvents.add(track);
           return;
         }
