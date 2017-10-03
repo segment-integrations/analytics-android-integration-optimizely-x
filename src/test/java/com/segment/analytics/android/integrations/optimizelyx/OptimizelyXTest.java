@@ -36,7 +36,6 @@ import static com.segment.analytics.Analytics.LogLevel.VERBOSE;
 import static com.segment.analytics.android.integrations.optimizelyx.OptimizelyXIntegration.OptimizelyNotificationListener;
 import static com.segment.analytics.android.integrations.optimizelyx.OptimizelyXIntegration.options;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -69,6 +68,7 @@ public class OptimizelyXTest {
   }
 
   @Test public void track() {
+    when(client.isValid()).thenReturn(true);
     Properties properties = new Properties();
     Traits traits = new Traits()
             .putValue("userId", "123")
@@ -79,6 +79,7 @@ public class OptimizelyXTest {
   }
 
   @Test public void trackKnownUsers() {
+    when(client.isValid()).thenReturn(true);
     integration.trackKnownUsers = true;
 
     Properties properties = new Properties();
@@ -90,6 +91,7 @@ public class OptimizelyXTest {
   }
 
   @Test public void trackKnownUsersNoUserId() {
+    when(client.isValid()).thenReturn(true);
     integration.trackKnownUsers = true;
 
     Traits traits = new Traits()
@@ -100,6 +102,7 @@ public class OptimizelyXTest {
   }
 
   @Test public void mapAttributesAndEventTags() {
+    when(client.isValid()).thenReturn(true);
     integration.trackKnownUsers = true;
 
     Traits traits = new Traits()
@@ -119,14 +122,14 @@ public class OptimizelyXTest {
   }
 
   @Test public void pollOptimizelyClient() {
-    when(client.isValid()).thenReturn(false, true);
-
+    when(client.isValid()).thenReturn(true);
     Properties properties = new Properties();
     Traits traits = new Traits()
             .putValue("anonymousId", "456");
-    integration.track(new TrackPayloadBuilder().properties(properties).traits(traits).event("event").build());
+    integration.trackEvents.add(new TrackPayloadBuilder().properties(properties).traits(traits).event("event").build());
+    integration.setClientAndFlushTracks(analytics);
 
-    verify(client, timeout(60000)).track("event", "456", attributes, properties.toStringMap());
+    verify(client).track("event", "456", attributes, properties.toStringMap());
   }
 
   @Test public void onExperimentActivated() {
@@ -192,11 +195,13 @@ public class OptimizelyXTest {
   }
 
   @Test public void listenerDisabled() {
+    when(client.isValid()).thenReturn(true);
     integration.listen = false;
     verify(client, times(0)).addNotificationListener(integration.listener);
   }
 
   @Test public void reset() {
+    when(client.isValid()).thenReturn(true);
     integration.reset();
     verify(client).removeNotificationListener(integration.listener);
   }

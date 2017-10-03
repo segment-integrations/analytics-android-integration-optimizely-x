@@ -47,7 +47,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
   boolean listen;
   static final Options options = new Options().setIntegration(OPTIMIZELYX_KEY, false);
   private Map<String, String> attributes = new HashMap<>();
-  private List<TrackPayload> trackEvents = new ArrayList<>();
+  List<TrackPayload> trackEvents = new ArrayList<>();
   private final Handler handler = new Handler();
 
   public static Factory factory(OptimizelyManager manager) {
@@ -110,20 +110,16 @@ public class OptimizelyXIntegration extends Integration<Void> {
     int queueSize = trackEvents.size();
 
     synchronized (this) {
-      if (client.isValid()) {
+      if (!client.isValid()) {
         logger.verbose("Optimizely not initialized. Enqueueing action: %s", track);
-        if (queueSize < 100) {
-          trackEvents.add(track);
-          return;
-        }
         if (queueSize >= 100) {
-          trackEvents.remove(0);
           logger.verbose(
               "Event queue has exceeded limit. Dropping event at index zero: %s",
               trackEvents.get(0));
-          trackEvents.add(track);
-          return;
+          trackEvents.remove(0);
         }
+        trackEvents.add(track);
+        return;
       }
     }
 
@@ -183,7 +179,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
     scheduler.scheduleAtFixedRate(poll, 60, 60, SECONDS);
   }
 
-  private void setClientAndFlushTracks(Analytics analytics) {
+  void setClientAndFlushTracks(Analytics analytics) {
     this.listener = createListener(analytics);
     client.addNotificationListener(listener);
     logger.verbose("Flushing track queue");
