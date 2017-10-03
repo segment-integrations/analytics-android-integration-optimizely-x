@@ -36,7 +36,6 @@ import static com.segment.analytics.Analytics.LogLevel.VERBOSE;
 import static com.segment.analytics.android.integrations.optimizelyx.OptimizelyXIntegration.OptimizelyNotificationListener;
 import static com.segment.analytics.android.integrations.optimizelyx.OptimizelyXIntegration.options;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -61,10 +60,11 @@ public class OptimizelyXTest {
     OptimizelyManager manager = mock(OptimizelyManager.class);
     client = mock(OptimizelyClient.class);
     when(manager.getOptimizely()).thenReturn(client);
+    when(client.isValid()).thenReturn(true);
     integration = new OptimizelyXIntegration(analytics, manager, new ValueMap()
             .putValue("trackKnownUsers", false)
             .putValue("nonInteraction", true)
-            .putValue("listen", true),
+            .putValue("listen", false),
             Logger.with(VERBOSE));
   }
 
@@ -119,14 +119,13 @@ public class OptimizelyXTest {
   }
 
   @Test public void pollOptimizelyClient() {
-    when(client.isValid()).thenReturn(false, true);
-
     Properties properties = new Properties();
     Traits traits = new Traits()
             .putValue("anonymousId", "456");
-    integration.track(new TrackPayloadBuilder().properties(properties).traits(traits).event("event").build());
+    integration.trackEvents.add(new TrackPayloadBuilder().properties(properties).traits(traits).event("event").build());
+    integration.setClientAndFlushTracks(analytics);
 
-    verify(client, timeout(60000)).track("event", "456", attributes, properties.toStringMap());
+    verify(client).track("event", "456", attributes, properties.toStringMap());
   }
 
   @Test public void onExperimentActivated() {
@@ -192,7 +191,6 @@ public class OptimizelyXTest {
   }
 
   @Test public void listenerDisabled() {
-    integration.listen = false;
     verify(client, times(0)).addNotificationListener(integration.listener);
   }
 
