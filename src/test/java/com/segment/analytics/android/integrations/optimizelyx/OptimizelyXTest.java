@@ -60,15 +60,15 @@ public class OptimizelyXTest {
     OptimizelyManager manager = mock(OptimizelyManager.class);
     client = mock(OptimizelyClient.class);
     when(manager.getOptimizely()).thenReturn(client);
+    when(client.isValid()).thenReturn(true);
     integration = new OptimizelyXIntegration(analytics, manager, new ValueMap()
             .putValue("trackKnownUsers", false)
             .putValue("nonInteraction", true)
-            .putValue("listen", true),
+            .putValue("listen", false),
             Logger.with(VERBOSE));
   }
 
   @Test public void track() {
-    when(client.isValid()).thenReturn(true);
     Properties properties = new Properties();
     Traits traits = new Traits()
             .putValue("userId", "123")
@@ -79,7 +79,6 @@ public class OptimizelyXTest {
   }
 
   @Test public void trackKnownUsers() {
-    when(client.isValid()).thenReturn(true);
     integration.trackKnownUsers = true;
 
     Properties properties = new Properties();
@@ -91,7 +90,6 @@ public class OptimizelyXTest {
   }
 
   @Test public void trackKnownUsersNoUserId() {
-    when(client.isValid()).thenReturn(true);
     integration.trackKnownUsers = true;
 
     Traits traits = new Traits()
@@ -102,7 +100,6 @@ public class OptimizelyXTest {
   }
 
   @Test public void mapAttributesAndEventTags() {
-    when(client.isValid()).thenReturn(true);
     integration.trackKnownUsers = true;
 
     Traits traits = new Traits()
@@ -122,7 +119,6 @@ public class OptimizelyXTest {
   }
 
   @Test public void pollOptimizelyClient() {
-    when(client.isValid()).thenReturn(true);
     Properties properties = new Properties();
     Traits traits = new Traits()
             .putValue("anonymousId", "456");
@@ -195,13 +191,10 @@ public class OptimizelyXTest {
   }
 
   @Test public void listenerDisabled() {
-    when(client.isValid()).thenReturn(true);
-    integration.listen = false;
     verify(client, times(0)).addNotificationListener(integration.listener);
   }
 
   @Test public void reset() {
-    when(client.isValid()).thenReturn(true);
     integration.reset();
     verify(client).removeNotificationListener(integration.listener);
   }
