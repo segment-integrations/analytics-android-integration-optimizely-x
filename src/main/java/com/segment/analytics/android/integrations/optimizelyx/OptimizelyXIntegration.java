@@ -48,6 +48,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
   static final Options options = new Options().setIntegration(OPTIMIZELYX_KEY, false);
   private Map<String, String> attributes = new HashMap<>();
   List<TrackPayload> trackEvents = new ArrayList<>();
+  private ScheduledExecutorService scheduler;
   private final Handler handler = new Handler();
 
   public static Factory factory(OptimizelyManager manager) {
@@ -88,7 +89,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
         client.addNotificationListener(listener);
       }
     } else {
-      pollOptimizelyClient(manager, analytics);
+      pollScheduler(manager, analytics);
     }
   }
 
@@ -107,22 +108,49 @@ public class OptimizelyXIntegration extends Integration<Void> {
   public void track(TrackPayload track) {
     super.track(track);
 
-    int queueSize = trackEvents.size();
-
-    synchronized (this) {
-      if (!client.isValid()) {
-        logger.verbose("Optimizely not initialized. Enqueueing action: %s", track);
-        if (queueSize >= 100) {
-          logger.verbose(
-              "Event queue has exceeded limit. Dropping event at index zero: %s",
-              trackEvents.get(0));
-          trackEvents.remove(0);
-        }
-        trackEvents.add(track);
-        return;
-      }
+    if (!client.isValid()) {
+      enqueueTrack(track);
+      return;
     }
+    trackEvent(track);
+  }
 
+  @Override
+  public void reset() {
+    super.reset();
+
+    client.removeNotificationListener(listener);
+    logger.verbose("client.removeNotificationListener(listener)");
+  }
+
+  private void pollScheduler(final OptimizelyManager manager, final Analytics analytics) {
+    this.scheduler = Executors.newScheduledThreadPool(1);
+
+    final Runnable poll =
+        new Runnable() {
+          @Override
+          public void run() {
+            handler.post(
+                new Runnable() {
+                  @Override
+                  public void run() {
+                    checkClient(manager, analytics);
+                  }
+                });
+          }
+        };
+    scheduler.scheduleAtFixedRate(poll, 60, 60, SECONDS);
+  }
+
+  private void checkClient(OptimizelyManager manager, Analytics analytics) {
+    this.client = manager.getOptimizely();
+    if (client.isValid()) {
+      scheduler.shutdown();
+      setClientAndFlushTracks(analytics);
+    }
+  }
+
+  private void trackEvent(TrackPayload track) {
     // Segment will default sending `track` calls with `anonymousId`s since Optimizely X does not alias known and unknown users
     // https://developers.optimizely.com/x/solutions/sdks/reference/index.html?language=objectivec&platform=mobile#user-ids
     String userId = track.userId();
@@ -146,37 +174,16 @@ public class OptimizelyXIntegration extends Integration<Void> {
     logger.verbose("client.track(%s, %s, %s, %s)", event, id, attributes, properties);
   }
 
-  @Override
-  public void reset() {
-    super.reset();
+  private void enqueueTrack(TrackPayload track) {
+    int queueSize = trackEvents.size();
 
-    client.removeNotificationListener(listener);
-    logger.verbose("client.removeNotificationListener(listener)");
-  }
-
-  private void pollOptimizelyClient(final OptimizelyManager manager, final Analytics analytics) {
-    final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-
-    final Runnable poll =
-        new Runnable() {
-          @Override
-          public void run() {
-            synchronized (OptimizelyXIntegration.this) {
-              OptimizelyXIntegration.this.client = manager.getOptimizely();
-            }
-            if (client.isValid()) {
-              handler.post(
-                  new Runnable() {
-                    @Override
-                    public void run() {
-                      setClientAndFlushTracks(analytics);
-                    }
-                  });
-              scheduler.shutdown();
-            }
-          }
-        };
-    scheduler.scheduleAtFixedRate(poll, 60, 60, SECONDS);
+    if (queueSize >= 100) {
+      logger.verbose(
+          "Event queue has exceeded limit. Dropping event at index zero: %s", trackEvents.get(0));
+      trackEvents.remove(0);
+    }
+    trackEvents.add(track);
+    logger.verbose("Optimizely not initialized. Enqueueing action: %s", track);
   }
 
   void setClientAndFlushTracks(Analytics analytics) {
@@ -185,7 +192,7 @@ public class OptimizelyXIntegration extends Integration<Void> {
     logger.verbose("Flushing track queue");
 
     for (TrackPayload t : trackEvents) {
-      track(t);
+      trackEvent(t);
     }
 
     trackEvents = null;

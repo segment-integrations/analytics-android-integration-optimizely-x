@@ -118,7 +118,7 @@ public class OptimizelyXTest {
     verify(client).track("event", "123", attributes, properties.toStringMap());
   }
 
-  @Test public void pollOptimizelyClient() {
+  @Test public void flushTrackEventQueue() {
     Properties properties = new Properties();
     Traits traits = new Traits()
             .putValue("anonymousId", "456");
