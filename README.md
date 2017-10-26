@@ -19,7 +19,7 @@ compile 'com.segment.analytics.android.integrations:optimizelyx:+'
 After adding the dependency, you must register the integration with our SDK. To do this, import the Optimizely X integration:
 
 ```
-import com.segment.analytics.android.integrations.firebase.OptimizelyXIntegration;
+import com.segment.analytics.android.integrations.optimizelyx.OptimizelyXIntegration;
 
 ```
 
