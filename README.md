@@ -11,7 +11,7 @@ Optimizely X integration for [analytics-android](https://github.com/segmentio/an
 To install the Segment-OptimizelyX integration, simply add this line to your gradle file:
 
 ```
-compile 'com.segment.analytics.android.integrations:optimizelyx:+'
+compile 'com.segment.analytics.android.integrations:optimizelyx:1.0.0-beta'
 ```
 
 ## Usage
