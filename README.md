@@ -23,14 +23,16 @@ import com.segment.analytics.android.integrations.optimizelyx.OptimizelyXIntegra
 
 ```
 
-And add the following line:
+Since the Optimizely X manager should be initialized as soon as possible in your application subclass, we leave it up to you to create this instance. You must then pass it to Segment's factory:
 
 ```
 Analytics analytics = new Analytics.Builder(context, writeKey)
-  .use(OptimizelyXIntegration.FACTORY)
+  .use(OptimizelyXIntegration.factory(optimizelyManager))
   ...
   .build();
 ```
+
+Note the different syntax used here - instead of using a global singleton instance, we use a method that creates the factory on demand.
 
 Please see [our documentation](https://segment.com/docs/destinations/optimizelyx/) for more information.
 
