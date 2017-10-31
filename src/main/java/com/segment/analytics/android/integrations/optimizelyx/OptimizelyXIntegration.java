@@ -107,11 +107,10 @@ public class OptimizelyXIntegration extends Integration<Void> {
   public void track(TrackPayload track) {
     super.track(track);
 
-    int queueSize = trackEvents.size();
-
     synchronized (this) {
       if (!client.isValid()) {
         logger.verbose("Optimizely not initialized. Enqueueing action: %s", track);
+        int queueSize = trackEvents.size();
         if (queueSize >= 100) {
           logger.verbose(
               "Event queue has exceeded limit. Dropping event at index zero: %s",
