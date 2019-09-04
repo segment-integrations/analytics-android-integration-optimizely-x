@@ -6,6 +6,8 @@ analytics-android-integration-optimizelyx
 
 Optimizely X integration for [analytics-android](https://github.com/segmentio/analytics-android).
 
+**This SDK supports Optimizely v1.5.1. Segment supports newer versions of Optimizely via Segment cloud mode. Read more about integrating with Optimizely via Segment cloud mode in [our documentation here](https://segment.com/docs/destinations/optimizely-full-stack/#android-cloud-mode-implementation).**
+
 ## Installation
 
 To install the Segment-OptimizelyX integration, simply add this line to your gradle file:
